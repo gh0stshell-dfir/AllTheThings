@@ -1,1 +1,1 @@
-Space for queries I find. 
+All the things im working on. Hunting/DFIR/Queries/Azure/Defender
