@@ -1,0 +1,19 @@
+let KeitaroDomains = dynamic([ 
+    "rednosehorse.com",
+    "apiexplorerzone.com",
+    "smthwentwrong.com",
+    "newgoodfoodmarket.com",
+    "foundedbrounded.org",
+    "packedbrick.com",
+    "newgreenvibes.com",
+    "rapiddevapi.com",
+    "digdonger.org",
+    "blackshelter.org",
+    "blacksaltys.com",
+    "brickedpack.com",
+    "blessedwirrow.org"
+]);
+DeviceNetworkEvents
+| where RemoteUrl has_any (KeitaroDomains)
+| project Timestamp, DeviceName, RemoteUrl
+| summarize DnsQueryCount = count() by RemoteUrl, DeviceName

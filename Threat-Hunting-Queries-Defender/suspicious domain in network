@@ -1,0 +1,9 @@
+# searching for domains defined in the let query. 
+
+let Domains = dynamic([ # Define domains wanting to look for
+    "example.com"
+]);
+DeviceNetworkEvents 
+| where RemoteUrl has_any (SocGholishDomains) # apply generated list to remoteURL under DeviceNetworkEvents
+| project Timestamp, DeviceName, RemoteUrl, RemoteIP
+| summarize Count = count() by RemoteUrl, DeviceName

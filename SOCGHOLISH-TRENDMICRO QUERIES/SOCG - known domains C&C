@@ -1,0 +1,42 @@
+let Domains = dynamic([ // Define domains wanting to look for
+    "nevada.mandros.us",
+    "cpanel.kreativelife.net",
+    "exclusive.nobogoods.com",
+    "whcms.greendreamcannabis.com",
+    "windows.envisionfonddulac.net",
+    "round.micha.ai",
+    "mail.aestheticfina.com",
+    "cluster.buydoorlitesandlouvers.com",
+    "software.adx-crm.com",
+    "sponsor.sewacanada.org",
+    "certificate.hypnotherapy-training.co.nz",
+    "estate.envisionfonddulac.org",
+    "seminary.envisionfonddulac.com",
+    "exchange.tuckx.com",
+    "dashboard.nzlifecoaching.com",
+    "programs.edlester.com",
+    "academy.entrepreneurwealthhub.com",
+    "portal.miaariacademy.com",
+    "preview.jpainting.ca",
+    "hub.unlimitedcashflowevent.com",
+    "ceo.cowholesaling.com",
+    "support.myfirstdealplaybook.com",
+    "newsite.iapmd.org",
+    "cpanel.buyjlindustriesonline.com",
+    "btctrading.crestlinesolutions.work",
+    "webmail.ebuildingsource.com",
+    "subscribe.bigeznola.com",
+    "gemini.1stpagegold.com",
+    "customer.aaddigitalstrategies.com",
+    "regular.ptbaconsulting.com",
+    "crm.bestintownpro.com",
+    "trial.buyintercomsonline.com",
+    "order.buyanemostatonline.com",
+    "static.buyweatherstriponline.com",
+    "zone.ebuilderssource.com",
+    "slot.buyaiphoneonline.com"
+]);
+DeviceNetworkEvents   
+| where RemoteUrl has_any (Domains) // apply generated list to remoteURL under DeviceNetworkEvents
+| project Timestamp, DeviceName, RemoteUrl, RemoteIP
+| summarize Count = count() by RemoteUrl, DeviceName

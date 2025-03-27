@@ -1,0 +1,8 @@
+// create a dynamic list of IPs you are to be searhcing for 
+let KnownIPs = dynamic([
+    "10.10.10.10"
+]);
+DeviceNetworkEvents   // looking in the table listed, use the list created above using has_any in RemoteIP
+| where RemoteIP has_any (KnownIPs)
+| project Timestamp, DeviceName, RemoteIP
+| summarize ConnectionCount = count() by RemoteIP, DeviceName

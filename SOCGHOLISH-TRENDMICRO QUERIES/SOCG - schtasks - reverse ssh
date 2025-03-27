@@ -1,0 +1,3 @@
+DeviceProcessEvents
+| where ProcessCommandLine contains "SCHTASKS /create" and ProcessCommandLine contains "ssh.exe"
+| project Timestamp, DeviceName, ProcessCommandLine, AccountName

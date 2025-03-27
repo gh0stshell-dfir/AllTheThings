@@ -1,0 +1,10 @@
+let PSCopy = dynamic([
+    "localappdata\\\\Microsoft\\\\Edge\\\\User Data\\\\Default\\\\Login Data",
+    "localappdata\\\\Google\\\\Chrome\\\\User Data\\\\Default\\\\Login Data",
+    "Local State"
+]);
+DeviceProcessEvents
+| where FileName =~ "powershell.exe" 
+        and ProcessCommandLine contains "copy" 
+        and ProcessCommandLine has_any (PSCopy)
+| project Timestamp, DeviceName, ProcessCommandLine, AccountName
