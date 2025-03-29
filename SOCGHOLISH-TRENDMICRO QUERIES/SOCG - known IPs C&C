@@ -25,7 +25,8 @@ let KnownIPs = dynamic([
     "166.88.182.65",
     "85.209.85.199",
     "82.153.134.38",
-    "194.135.104.175"
+    "194.135.104.175",
+    "5.61.39.26"
 ]);
 DeviceNetworkEvents
 | where RemoteIP has_any (KnownIPs)
