@@ -1,0 +1,35 @@
+let timeframe = 30d; // Overall detection window
+let windowSize = 15m; // Event clustering window
+let commandPatterns = dynamic([
+    "New-Object System.DirectoryServices.DirectorySearcher.*objectCategory=person",
+    "New-Object System.DirectoryServices.DirectorySearcher.*objectCategory=computer",
+    "net group \"domain users\".*domain",
+    "net group .*domain",
+    "nltest.*domain_trusts"
+]);
+// First get all matching events
+let reconEvents = DeviceProcessEvents
+| where Timestamp > ago(timeframe)
+| where ProcessCommandLine has_any(commandPatterns) or InitiatingProcessCommandLine has_any(commandPatterns)
+| extend ReconCommand = case(
+    ProcessCommandLine has "objectCategory=person", "AD User Enumeration",
+    ProcessCommandLine has "objectCategory=computer", "AD Computer Enumeration",
+    ProcessCommandLine has "net group" and ProcessCommandLine has "domain", "Domain Group Enumeration",
+    ProcessCommandLine has "nltest" and ProcessCommandLine has "domain_trusts", "Domain Trust Enumeration",
+    InitiatingProcessCommandLine has "objectCategory=person", "AD User Enumeration (Parent)",
+    InitiatingProcessCommandLine has "objectCategory=computer", "AD Computer Enumeration (Parent)",
+    InitiatingProcessCommandLine has "net group" and InitiatingProcessCommandLine has "domain", "Domain Group Enumeration (Parent)",
+    InitiatingProcessCommandLine has "nltest" and InitiatingProcessCommandLine has "domain_trusts", "Domain Trust Enumeration (Parent)",
+    "Other AD Reconnaissance"
+);
+// Find devices with multiple recon activities within the time window
+let suspiciousDevices = reconEvents
+| summarize CommandCount = dcount(ReconCommand), min_time = min(Timestamp), max_time = max(Timestamp) by DeviceName
+| where CommandCount > 1 and (max_time - min_time) between (0min .. windowSize)
+| project DeviceName, CommandCount, min_time, max_time;
+// Return all events for those devices, within their suspicious time windows
+reconEvents
+| join kind=inner suspiciousDevices on DeviceName
+| where Timestamp between (min_time .. max_time)
+| project Timestamp, DeviceName, ReconCommand, ProcessCommandLine, InitiatingProcessCommandLine, AccountName, FileName, FolderPath
+| order by Timestamp asc
