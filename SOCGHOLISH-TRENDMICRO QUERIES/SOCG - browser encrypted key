@@ -1,0 +1,10 @@
+DeviceProcessEvents
+| where ProcessCommandLine contains "powershell" 
+    and (
+        (ProcessCommandLine contains "Microsoft\\Edge\\User Data\\Local State" and ProcessCommandLine contains "encrypted_key")
+        or 
+        (ProcessCommandLine contains "Google\\Chrome\\User Data\\Local State" and ProcessCommandLine contains "encrypted_key")
+    )
+    and ProcessCommandLine contains "System.Security.Cryptography.ProtectedData"
+    and ProcessCommandLine contains "Unprotect"
+| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine, InitiatingProcessCommandLine, InitiatingProcessFileName
