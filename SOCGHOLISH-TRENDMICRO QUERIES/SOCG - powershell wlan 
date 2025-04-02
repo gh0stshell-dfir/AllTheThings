@@ -1,0 +1,5 @@
+DeviceProcessEvents
+| where ProcessCommandLine contains "powershell" 
+    and ProcessCommandLine contains "netsh wlan show profiles" 
+    and ProcessCommandLine contains "key=clear"
+| project TimeGenerated, DeviceName, AccountName, ProcessCommandLine, InitiatingProcessCommandLine, InitiatingProcessFileName, ProcessId
