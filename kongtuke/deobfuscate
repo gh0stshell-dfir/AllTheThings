@@ -1,0 +1,20 @@
+import re
+import jsbeautifier
+
+# Paste your full payload here
+obfuscated_js = '''"node.exe" -e "function a0q(){const r=['\x20/f','APPDATA','length','exit','__proto__','ChromeUpdater','replaceAll'...'''
+
+# Extract the JavaScript portion inside the -e argument
+match = re.search(r'"node\.exe"\s+-e\s+"(.*)"$', obfuscated_js, re.DOTALL)
+if match:
+    js_code_raw = match.group(1)
+    # Decode any escaped characters
+    js_code_unescaped = bytes(js_code_raw, "utf-8").decode("unicode_escape")
+else:
+    js_code_unescaped = obfuscated_js  # fallback in case the regex fails
+
+# Beautify the decoded JavaScript
+beautified_code = jsbeautifier.beautify(js_code_unescaped)
+
+# Print or save the output
+print(beautified_code)
