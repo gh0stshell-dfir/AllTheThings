@@ -1,0 +1,40 @@
+powershell.exe -Command "
+    # Set console output to UTF-8 to handle special characters, suppress command output
+    chcp 65001 > $null 2>&1;
+
+    # --- Output Script Version ---
+    Write-Output 'version: 000013';
+
+    # --- Determine Execution Context (Privileges) ---
+    if ([Security.Principal.WindowsIdentity]::GetCurrent().Name -match '(?i)SYSTEM') {
+        # Check if running as the SYSTEM account (case-insensitive)
+        Write-Output 'Runas: System';
+    }
+    elseif (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+        # Check if the current user is a member of the Administrators group
+        Write-Output 'Runas: Admin';
+    }
+    else {
+        # Otherwise, assume standard user privileges
+        Write-Output 'Runas: User';
+    }
+
+    # --- Gather System Information ---
+    systeminfo;
+    Write-Output '=-=-=-=-=-'; # Separator
+
+    # --- List Running Processes and Associated Services ---
+    tasklist /svc;
+    Write-Output '=-=-=-=-=-'; # Separator
+
+    # --- List All Registered Services (Name and Display Name) ---
+    Get-Service | Select-Object -Property Name, DisplayName | Format-List;
+    Write-Output '=-=-=-=-=-'; # Separator
+
+    # --- List Available File System Drives ---
+    Get-PSDrive -PSProvider FileSystem | Format-Table -AutoSize;
+    Write-Output '=-=-=-=-=-'; # Separator
+
+    # --- Display ARP Cache (IP to MAC Address Mappings) ---
+    arp -a;
+"
