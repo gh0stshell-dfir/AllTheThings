@@ -1,0 +1,253 @@
+// Written by IvanKLYDZ @ KLYDZ.NET
+
+Ransomware Operator Bible
+ 
+The ransomware operator bible
+Ransomware isn’t just a malicious software that messes up your files, it’s a planned, step-by-step attack. Cybercriminals break into a network, take control, and then demand money. I’ve seen these attacks take down entire companies, and it’s like watching a chess game where the attackers are always ahead. To stop them, you have to understand how they work. Let’s go through the ransomware process and look at how attackers use tools like Active Directory, Kerberos, and domain controllers to get what they want.
+First is how they get in. This is the initial access point. Attackers have several ways in. One of the most common is phishing, a fake email with a malicious attachment, like a Word document that installs malware such as Emotet when someone opens it. They also look for unpatched systems, like old RDP servers or VPNs with known flaws (for example, the Fortinet vulnerability). Some attackers don’t even need to break in, they buy stolen login details from the dark web and log in like they belong there. Groups like LockBit and REvil are known for using all these methods, from targeted phishing to zero-day exploits.
+Once inside, they move quietly. This stage is about learning the network. Most businesses use Active Directory (AD), which manages users, computers, and access rights. Attackers use tools like BloodHound or PowerView to scan AD using LDAP. They look for domain controllers and high-level accounts like domain admins. This helps them figure out where to go next and how to take control without being noticed.
+Next comes privilege escalation. They start with a regular user account, but their goal is to get admin-level access. In Windows environments, that often means taking advantage of Kerberos, which handles logins. One common trick is Kerberoasting, where they try to crack service account passwords. They also use tools like Mimikatz to grab login details straight from memory. If they find a domain admin account, it’s game over, they can do almost anything. Weak passwords and misconfigured accounts make this step easier.
+With admin access, attackers start moving through the network. This is called lateral movement. They use stolen credentials for attacks like Pass-the-Hash or take advantage of trusted tools like PSExec and WMI to blend in. Their main target is the domain controller. If they get control of that, they basically control the entire network. Attacks like Ryuk have shown how quickly they can move using tools like SMB and RDP without triggering alarms.
+After that comes data theft and encryption. Before locking files, attackers often steal sensitive data, like customer info or trade secrets, using tools such as Rclone. Then they launch the ransomware, encrypting data across the network. These days, double-extortion is common: if you don’t pay, not only do you lose access to your files, but they also threaten to leak your data. They often delete backups too, just to make sure recovery isn’t an option.
+Finally, they demand payment. Victims receive a ransom note with a link to a Tor site and instructions to pay in Bitcoin. Many attacks are run through a Ransomware-as-a-Service model, where different groups handle different parts of the attack. One team breaks in, another deploys the ransomware. It’s organized and efficient.
+Every stage of this process is a chance for attackers to tighten their grip, but it’s also a chance for defenders to catch them. Knowing how they use Active Directory, Kerberos, and domain controllers gives you the insight you need to stop them before it’s too late.
+Getting Initial Access
+Ransomware attacks usually begin with gaining initial access, this is how attackers quietly get into a network before launching their full attack. They use a mix of technical tactics and human error to get in. A big part of this stage involves pentesters, hackers-forhire, who break into systems and then sell access to ransomware groups. These pentesters are active on underground forums like xss.is, exploit.in, BreachForums, and especially RAMP, where network access is sold for as little as $200 or as much as $3,000, depending on the size and value of the target.
+Buyers use platforms like ZoomInfo to check a company’s annual revenue. If it’s under $5 million, they usually skip it, too small to bother. The focus is on larger companies in the US and Europe, where data privacy laws like GDPR increase pressure to pay up quickly. If a pentester gains access to a domain controller (DC), the price jumps, by as much as 80%, because a DC gives full control over a company’s network. If DC access isn’t available, they still sell user or server access, just at lower prices, typically around $200–$500.
+
+
+
+Here’s how pentesters and attackers typically gain access:
+Phishing & simswaps attacks
+Phishing remains one of the most common entry points. Attackers send emails that look like they’re from a manager, HR, or a vendor. These emails include either a malicious attachment, usually a Word document with embedded macros, or a link to a fake login page that looks just like the real thing. Opening the document or entering credentials on the fake site installs malware such as Emotet, TrickBot, or Qakbot, giving the attacker a foothold in the network. Pentesters use similar tactics, crafting convincing messages that create urgency (e.g., password reset notices). They often buy ready-made phishing kits on RAMP to send out large campaigns quickly.
+Beyond email scams, some attackers use phone calls or chats to pose as IT staff or vendors, convincing employees to share credentials or install remote access tools like TeamViewer. Pentesters often research targets using LinkedIn, company websites, or social media to make their impersonation convincing. These attacks are less common but very effective, especially for high-value targets. Custom social engineering services are offered on RAMP for $500–$1,000, depending on the complexity of the target.
+Exploiting public cves and vulnerabilities
+Attackers scan for vulnerable internet-facing systems like RDP, VPN appliances, and software like Microsoft Exchange. Known vulnerabilities, such as ProxyLogon or Log4j, are exploited to gain access. Tools like Nmap, Nessus, and Metasploit help them find these flaws. If they find an exposed RDP port with a weak password, they either brute-force it or use stolen credentials. Vulnerability exploits are actively traded on forums like exploit.in, and the more valuable the flaw, the higher the price, some go for over $1,000.
+
+
+Credential Stuffing – (Using leaked Passwords)
+Stolen credentials from previous data breaches are also a common entry point. Attackers test these credentials on login portals for services like VPN, RDP, or Office 365, a method known as credential stuffing. If users reuse passwords across services, they’re especially vulnerable. Pentesters collect these credentials through phishing or keyloggers and sell them on forums like BreachForums. Regular user credentials might sell for $200, while admin-level access can go for over $1,000. Sometimes, these come bundled with company network details to increase their value.
+Supply Chain Attacks
+Another tactic is to attack a company through its third-party vendors. These supply chain attacks are harder to pull off but can have a huge impact. In the SolarWinds breach, attackers planted malware in a software update, affecting thousands of organizations. The Kaseya incident saw ransomware pushed to many clients through a managed service provider. Pentesters often target smaller vendors with weaker security, especially those connected to larger organizations. Access gained this way can sell for $2,000–$3,000 on RAMP or xss.is, making it a high-risk but high-reward move.
+Brute-Forcing
+In many cases, attackers use brute-force tools like Hydra or Medusa to guess passwords on exposed systems like RDP, SSH, or VPNs. Simple passwords like "Password123" fall quickly. Pentesters automate these attacks using botnets, especially to crack low-level accounts they can later sell for $200–$300. Admin credentials, if cracked, are far more valuable and can sell for over $1,000.
+
+Malvertising and Drive-By Downloads
+Sometimes, attackers compromise legitimate websites or run malicious ads that install malware just from a user visiting the page. These “drive-by downloads” rely on outdated browser plugins like Flash or Java and are delivered through exploit kits such as Rig or Neutrino. Pentesters set up these traps and sell the resulting access on BreachForums, usually for $300–$800 based on the size and quality of the infected network. These attacks are quiet, fast, and scalable.
+Insider Threats
+Occasionally, it’s an inside job. Disgruntled employees or contractors may sell access to ransomware groups. This could be VPN credentials, admin passwords, or even domain controller logins. Pentesters recruit insiders directly through RAMP or xss.is, offering over $3,000 for direct access. While less common, insider threats are incredibly valuable because they bypass most security measures.
+Why Domain Controllers Matter
+Domain controllers are a top target because they run the backbone of Active Directory. They manage authentication, group policies, and access control across the network. If attackers get access to a DC, they effectively control the entire organization’s IT environment. That’s why access to a DC drives prices up by 80% or more, what might sell for $2,000 could jump to $3,600 or higher. Even if there’s no DC access, attackers will still sell what they have, often for a few hundred dollars if it’s just a user account or a single server.
+Ransomware operators focus heavily on companies in the US and EU for one major reason: they pay. In Europe, GDPR regulations mean that a serious data breach can lead to massive fines, up to 4% of a company’s annual revenue. To avoid legal fallout and reputational damage, companies often choose to quietly pay the ransom. In the US, companies tend to have higher revenues and weaker cybersecurity postures, making them both profitable and easier to hit.
+When it comes to ransom demands, operators typically ask for between 0.5% and 5% of a company’s annual revenue, depending on how sensitive the stolen data is and how much damage the encryption caused. That might not sound like much, but it adds up quickly. Take a mid-size company with $40 million in annual revenue, that’s a very common target. Even at the low end of 0.5%, the attackers would demand $200,000. If they push for 2% to 5%, that number jumps to $800,000 to $2 million. And that’s just one victim. Ransomware crews often hit multiple companies each month, which is why even low-percentage ransoms can turn into multi-million-dollar operations in a matter of weeks.
+That scale, and the legal pressure companies face, makes the US and EU especially attractive hunting grounds for ransomware gangs and the pentesters who support them.
+ 
+Reconnaissance and Active Directory – Mapping the Network
+Once attackers gain access to a network, their next step is reconnaissance. This phase is about quietly exploring the environment to understand how everything is connected and identifying valuable targets. In organizations that rely on Windows infrastructure, Active Directory (AD) becomes the primary focus. AD functions as the central hub for managing users, systems, and permissions, essentially, it’s the brain of the network. If attackers can understand and control AD, they’re in a position to take over.
+This part of the attack is all about information gathering. The goal is to find out who holds administrative privileges, where the domain controllers are located, and which machines store sensitive data. To do that, attackers use a combination of automated tools and manual techniques to extract and analyze information from AD, without alerting defenders.
+What is Active Directory?
+Active Directory is essentially the network’s master directory. It manages and stores information about users, computers, servers, and access rights. Everything within AD is organized under a domain, typically something like company.local. The domain is controlled by servers called domain controllers (DCs), which authenticate users, apply policies, and coordinate permissions.
+For attackers, compromising AD means gaining visibility and control over the entire organization. That’s why the reconnaissance phase focuses so heavily on it. The first step is to map out the environment: identifying privileged accounts, locating the DCs, and understanding how access is structured.
+Using LDAP to Query the Environment
+Attackers rely on LDAP (Lightweight Directory Access Protocol) to query Active Directory and pull valuable information. LDAP is the built-in protocol that AD uses to share directory data, and it’s accessible from any machine within the domain that has network access and the right tools.
+With LDAP, an attacker can ask questions like:
+    Who is a member of the Domain Admins group?
+    What computers are in a particular organizational unit, like Finance?
+    What users have recently logged in?
+These queries help attackers build a detailed map of the environment. One commonly used tool is AdFind, a command-line utility that can pull large amounts of AD data quickly. For example, a basic command might look like:
+AdFind -f "objectcategory=person"
+This pulls a list of user objects from the directory. From there, attackers can pivot to identifying privileged accounts or spotting misconfigurations.
+Privilege Escalation and Kerberos
+Once ransomware attackers map out a network during reconnaissance, their next step is privilege escalation, climbing from a low-level account to one with serious power, like a domain admin. In Windows networks, Active Directory (AD) is the main battlefield, and Kerberos, the protocol that handles authentication, is a prime target. This section breaks down how attackers exploit Kerberos and other techniques to seize control, using every trick and tool to dominate the network.
+What’s Privilege Escalation?
+Privilege escalation is when attackers take a basic user account, like a regular employee’s login, and turn it into something powerful, like a domain admin with network-wide control. There are two types: local escalation (gaining admin rights on one machine) and domain escalation (getting admin rights across the domain). Ransomware operators focus on domain escalation because it lets them own Active Directory, encrypt everything, and demand big ransoms. Kerberos is their favorite way to do this, but they’ve got other methods too.
+What is kerberos
+Kerberos is the protocol AD uses to verify users and machines. It’s like a ticket booth: when you log in, Kerberos hands out tickets to access resources. Here’s how it works in simple terms: A user logs in, and the Key Distribution Center (KDC) (usually the domain controller) gives a Ticket Granting Ticket (TGT).
+The TGT lets the user ask for service tickets to access specific resources, like a file server.
+Tickets are encrypted with keys tied to user or service accounts.
+Attackers love Kerberos because it’s central to AD and often misconfigured. They exploit it to steal credentials, forge tickets, or impersonate users, aiming for domain admin access.
+
+
+Kerberoasting: Cracking Service Accounts
+One of the top Kerberos attacks is Kerberoasting. Service accounts (used by apps like SQL Server) have Service Principal Names (SPNs) tied to them. Attackers request service tickets for these SPNs, which are encrypted with the service account’s password hash. They then crack the hash offline to get the password.
+Here’s how it goes:
+Attackers use a tool like PowerView to find accounts with SPNs:
+ 
+They request a service ticket using GetUserSPNs.py (from Impacket) or Rubeus:
+Rubeus.exe kerberoast /outfile:hashes.txt
+The ticket contains a NTLMv2 hash, which they crack with tools like Hashcat or whatever.
+Service accounts often have weak passwords, making them easy to crack. If the account has domain admin rights (a common misconfiguration), attackers get god-level access.
+Golden Ticket: Total Control
+A Golden Ticket attack is the ultimate Kerberos hack. Attackers steal the KRBTGT account’s password hash, the master key for all Kerberos tickets in the domain. With it, they forge a TGT that grants access to any resource as any user, like a domain admin, for years.
+
+
+
+Steps for a Golden Ticket:
+Attackers compromise a domain controller and use Mimikatz to dump the KRBTGT hash:
+ 
+They create a forged TGT with Mimikatz:
+mimikatz # kerberos::golden /user:admin / domain:company.local /sid:S-1-5-21-123456789 / krbtgt:abc123hash /ptt
+
+The ticket is injected into memory, letting attackers access anything in the domain.
+Golden Tickets are devastating because they give persistent, undetectable access.
+ 
+ 
+
+Silver Ticket:
+A Silver Ticket is like a Golden Ticket but for one service, like a file server or SQL database. Attackers steal the service account’s hash (not KRBTGT) and forge a service ticket. For example, they might target a file server’s hash to access sensitive data.
+Using Mimikatz:
+mimikatz # kerberos::golden /user:admin / domain:company.local /sid:S-1-5-21-123456789 / target:fileserver /service:cifs /rc4:def456hash / ptt
+
+Silver Tickets are stealthier than Golden Tickets since they don’t touch the KDC, but they’re limited to one service.
+Pass-the-Ticket
+In a Pass-the-Ticket attack, attackers steal a Kerberos ticket (TGT or service ticket) from a compromised machine and reuse it elsewhere. They use Mimikatz to dump tickets:
+mimikatz # sekurlsa::tickets /export
+Then, they inject the ticket into another session:
+This lets them impersonate a user, like a domain admin, without needing their password.
+In case all of this was just bullshit and didn't help:
+Beyond Kerberos, attackers use other methods to climb the privilege ladder:
+Pass-the-Hash: They steal a user’s NTLM hash (not a Kerberos ticket) and use it to authenticate. Tools like CrackMapExec or Mimikatz make this easy:
+crackmapexec smb dc01.company.local -u "jdoe" -H "aad3b435b51404eeaad3b435b51404ee:abc123"
+
+Token Impersonation: Attackers steal a high-privilege user’s security token from a machine where they’re logged in. Mimikatz does this with:
+mimikatz # sekurlsa::logonpasswords
+
+DLL Hijacking: Attackers plant malicious DLLs in apps that run as SYSTEM, escalating to local admin.
+
+Unconstrained Delegation: If a server has unconstrained delegation, attackers log in as a privileged user, capture their TGT, and reuse it. 
+
+PowerView finds these servers:
+Get-DomainComputer -Unconstrained
+Weak Permissions: Attackers exploit AD permissions, like if a regular user can reset a domain admin’s password. 
+
+BloodHound or PowerView spots these with:
+Find-InterestingDomainAcl
+
+The ultimate goal is domain admin access, the “keys to the kingdom.” Attackers hunt these accounts because they control AD, letting them deploy ransomware network-wide. They find domain admins via recon (e.g., BloodHound) and use Kerberos attacks, stolen hashes, or misconfigurations to take them over. Once they’re domain admin, they can access domain controllers, push malicious Group Policies, or encrypt everything.
+
+Lateral Movement and Domain Controllers
+After gaining a foothold and escalating privileges, ransomware attackers shift to lateral movement, spreading across the network to reach critical systems like domain controllers (DCs). In Active Directory (AD) environments, DCs are the ultimate prize because they control authentication and policies, making them perfect for deploying ransomware network-wide. This section dives into the technical nitty-gritty of how attackers move laterally, compromise DCs, and use every method and tool to spread their infection.
+
+What’s Lateral Movement?
+Lateral movement is when attackers jump from one machine to another, expanding their control. Starting with a compromised user account or system (like a workstation), they aim to reach highvalue targets, especially DCs. Domain controllers are servers that manage AD, handling user logins, permissions, and Group Policy Objects (GPOs). Owning a DC lets attackers push ransomware to every machine, encrypt data, or steal sensitive info. Lateral movement is stealthy, using legitimate protocols and stolen credentials to blend in.
+
+Common Lateral Movement Techniques
+Attackers rely on a mix of techniques to hop between systems, abusing Windows protocols and AD features. Here’s how they do it:
+Pass-the-Hash (PtH)
+Pass-the-Hash lets attackers use a stolen NTLM hash (a cryptographic representation of a user’s password) to authenticate without knowing the actual password. After dumping hashes from a compromised machine using Mimikatz:
+ 
+They pass the hash to another machine with CrackMapExec:
+crackmapexec smb 192.168.1.10 -u "jdoe" -H 
+"aad3b435b51404eeaad3b435b51404ee:abc123"
+If the user has admin rights on the target, attackers gain control. PtH is deadly because hashes are often reused across systems, especially for admin accounts.
+
+Pass-the-Ticket (PtT)
+In Pass-the-Ticket, attackers steal Kerberos tickets (like a Ticket Granting Ticket or service ticket) and reuse them on other machines. They extract tickets with Mimikatz:
+mimikatz # sekurlsa::tickets /export
+Then inject them into a new session:
+mimikatz # kerberos::ptt ticket.kirbi
+If the ticket belongs to a domain admin, attackers can access DCs or other critical servers. PtT is powerful in AD because Kerberos tickets grant seamless access to resources.
+
+PSExec and Remote Execution
+PSExec, a legitimate Windows tool, lets attackers run commands on remote machines. With stolen credentials or hashes, they execute payloads or scripts. For example:
+psexec \\server01 -u company\jdoe -p Password123 cmd.exe
+
+Attackers use PSExec to deploy ransomware binaries or run reconnaissance tools on new systems. Variants like SMBExec or
+WMIExec (from Impacket) achieve similar results over SMB or WMI protocols.
+Remote Desktop Protocol (RDP)
+If attackers find RDP enabled (common in misconfigured networks), they log into machines using stolen credentials. Tools like xfreerdp or Windows’ built-in mstsc let them access servers interactively:
+xfreerdp /u:jdoe /p:Password123 /v:192.168.1.20
+RDP is a favorite for moving to DCs, as admins often use it for management, leaving a trail of reusable credentials.
+Windows Management Instrumentation (WMI)
+WMI is a Windows protocol for managing systems remotely. Attackers use it to execute commands or scripts on other machines. With wmiexec.py (Impacket):
+wmiexec.py company/jdoe:Password123@192.168.1.30 
+They gain a shell to run malware or dump credentials. WMI is stealthy because it’s a native protocol, often overlooked by monitoring.
+
+Server Message Block (SMB)
+SMB, used for file sharing, is another avenue. Attackers exploit SMB to access shares or execute code. Tools like CrackMapExec use SMB to spray credentials across a subnet:
+crackmapexec smb 192.168.1.0/24 -u "jdoe" -p 
+"Password123" --exec-method smbexec
+If a target has admin rights, attackers drop payloads or escalate further.
+Targeting Domain Controllers
+DCs are the endgame because they control AD. Attackers use lateral movement to reach them, then compromise them to dominate the network. Here’s how they do it:
+Credential Reuse: Admins often reuse credentials across systems. Attackers dump hashes or tickets from workstations and try them on DCs.
+Exploiting Trusts: AD domains often have trust relationships (e.g., company.local trusts partner.local). Attackers move across trusts using stolen credentials or forged Kerberos tickets (like a Golden Ticket). PowerView maps trusts:
+ 
+DCSync Attacks: Attackers with high privileges (e.g., domain admin) use DCSync to replicate AD data from a DC. Mimikatz pulls hashes, including the KRBTGT account:
+mimikatz # lsadump::dcsync /user:krbtgt
+This gives them everything needed for a Golden Ticket or further attacks.
+Direct Exploitation: If DCs are unpatched, attackers exploit vulnerabilities like ZeroLogon (CVE-2020-1472) to reset the DC’s password and take over. Tools like zerologon-exploit automate this.
+
+Abusing AD Misconfigurations
+Attackers exploit AD misconfigurations to ease lateral movement:
+Overprivileged Accounts: Regular users with local admin rights on multiple machines are easy stepping stones.
+Unconstrained Delegation: Servers that can impersonate users let attackers capture and reuse tickets to reach DCs.
+Weak GPOs: GPOs that deploy scripts or grant excessive access expose DCs to compromise.
+Stale Credentials: Old admin accounts with unchanged passwords are reused across systems.
+PowerView finds these issues:
+Find-DomainShare -CheckAccess
+Deploying the Infection
+Once on a DC, attackers use their control to spread ransomware.
+They modify GPOs to push malicious scripts or binaries to every machine:
+New-GPO -Name "Ransom" | New-GPLink -Target 
+"DC=company,DC=local"
+Or they use PsExec to deploy ransomware network-wide. DCs also give access to sensitive data, which attackers exfiltrate before encrypting.
+
+
+Tools you are gonna need
+Attackers lean on a robust toolkit for lateral movement:
+Mimikatz: Dumps credentials, hashes, and tickets for PtH, PtT, and DCSync.
+Cobalt Strike: A command-and-control framework for executing payloads across systems via SMB, WMI, or RDP.
+Impacket: Python scripts (e.g., psexec.py, wmiexec.py) for remote execution and credential abuse.
+BloodHound: Maps paths to DCs by analyzing permissions and sessions.
+CrackMapExec: Automates credential spraying and remote execution over SMB, WMI, or WinRM.
+
+Data Exfiltration and Encryption
+Ransomware operators save their deadliest moves for last: data exfiltration and encryption. Exfiltration means stealing sensitive data, like customer info, financial records, or trade secrets, to use in double-extortion, where they threaten to leak it unless paid. Encryption locks systems, making them unusable until a ransom is paid. These steps are the payoff, where attackers cash in on their breach. This section dives deep into the technical details of how they exfiltrate data using tools like StealBit, Exmatter, Rclone, and peer-to-peer methods like Tox, plus how they encrypt systems with tricks like semi-encryption and ZIP header corruption. Real-world attacks, like Colonial Pipeline and JBS Foods, show how it’s done.
+
+
+
+
+
+Data Exfiltration:
+Exfiltration is about grabbing valuable files and sending them to attacker-controlled servers. Double-extortion makes this critical: attackers encrypt systems and threaten to leak stolen data, doubling the pressure on victims. They target files like databases, source code, or financial records, knowing organizations will pay to keep them private. Attackers use a mix of custom tools, opensource software, and creative methods like peer-to-peer transfers to pull it off.
+
+StealBit (LockBit)
+StealBit, used by LockBit, is a straightforward tool for stealing data. It’s not some fancy, complex program, it’s built to be fast and easy for affiliates to use. StealBit scans a victim’s system, targeting files by extension (e.g., .docx, .pdf, .sql) or folder (e.g., C: \Data). It focuses on recent or large files (>1KB) to grab the most valuable stuff quickly. Files are compressed into archives to save bandwidth, then uploaded to attacker servers via HTTP or FTP. If attackers have desktop access, they can drag and drop files into StealBit’s window, but it usually runs automatically, copying files to a staging folder before transfer. A 2021 Cybereason report noted StealBit’s simplicity, saying it prioritizes speed to exfiltrate data before ransomware deployment, used in attacks like the 2021 Accenture breach.
+
+Exmatter (BlackMatter/Conti)
+Exmatter is a custom tool seen in BlackMatter and Conti attacks. It’s a .NET-based program that targets specific file types, like source code, CAD files, or Remote Desktop shortcuts (.rdp).
+Exmatter scans all drives but skips system folders (e.g., C: \ProgramData) to focus on business-critical data. It prioritizes newer files and those larger than 1,024 bytes, building a queue to upload them via Secure File Transfer Protocol (SFTP) or WebDAV. Exmatter’s design speeds up theft by ignoring low-value files, making it ideal for quick hits. Kroll’s 2021 analysis of Exmatter in Conti attacks showed it stealing engineering designs, increasing ransom pressure.
+
+Rclone* - VERY Common
+Rclone is an open-source tool attackers love for its reliability. It syncs files to cloud storage like Mega.nz, Google Drive, or Dropbox, blending with legitimate traffic. Attackers point Rclone at a folder (e.g., C:\Finance), and it uploads everything to a cloud account they control. Rclone encrypts transfers and breaks files into chunks, making it hard to trace. Its flexibility lets attackers configure multiple destinations for redundancy. LockBit and BlackByte affiliates used Rclone in 2022 to exfiltrate data, with CISA noting its role in healthcare attacks.
+
+Peer-to-Peer Exfiltration
+Some attackers use peer-to-peer (P2P) methods like the Tox protocol to exfiltrate data. Tox is an encrypted, decentralized messaging system with no central server, making it tough to track. Attackers set up a Tox client on a compromised machine, zip sensitive files, and send them directly to their own Tox node. This P2P transfer bypasses traditional servers, reducing the chance of interception. In a 2020 Maze attack, operators used Tox to exfiltrate customer databases, as reported by Emsisoft. Maze automated the process, scripting Tox to send archives in chunks, ensuring reliable delivery. Tox’s low footprint and encryption make it a sneaky choice, though it’s less common due to setup complexity.
+Another P2P method is torrenting, used by groups like REvil. Attackers zip data and create a torrent file, seeding it to multiple attacker-controlled peers via clients like qBittorrent. This spreads the transfer across many nodes, boosting speed and redundancy. In a 2021 REvil attack on JBS Foods, attackers exfiltrated financial records via torrenting, demanding $11 million. Sophos reported that REvil’s torrent setup hid the destination by leveraging BitTorrent’s distributed nature, making it hard to pinpoint the data’s endpoint.
+
+Other Exfiltration tools
+Exbyte (BlackByte): A 2022 Symantec report linked Exbyte to BlackByte, describing it as a lightweight tool targeting databases and archives. It uses HTTP POST requests to upload files, focusing on speed over stealth.
+Ryuk Stealer: Used by Ryuk, this tool grabs files by type (e.g.,
+.xlsx, .dwg) and uploads them via FTP. It was seen in 2020 hospital attacks, per Kroll.
+FileZilla and WinSCP: Attackers sometimes use these legitimate FTP clients for manual exfiltration, especially in smaller campaigns, connecting to their servers to upload staged data.
+Attackers stage files in temporary folders (e.g., C:\Temp), often compressing them with WinRAR or 7-Zip to shrink sizes. They monitor the Master File Table (MFT) to track file access and wipe traces after transfer, ensuring stealth. A 2024 Medium post highlighted how Conti used MFT parsing to prioritize high-value files.
+
+Encryption: Locking Systems
+Encryption is the knockout punch, rendering systems and files unusable. Attackers use hybrid encryption, combining symmetric (fast) and asymmetric (secure) algorithms, for efficiency. They also employ tricks like semi-encryption and ZIP header corruption to maximize damage while keeping things quick.
+
+Hybrid Encryption
+Most ransomware, like LockBit 3.0, uses ChaCha20 (symmetric) to encrypt file contents and RSA-2048 (asymmetric) to lock the ChaCha20 key. For each file, a unique ChaCha20 key is generated, used to encrypt the file, and then encrypted with RSA-2048. The RSA-encrypted key is stored in a ransom note (e.g., .README.txt) dropped in every folder. This ensures files can’t be decrypted without the attacker’s private RSA key. REvil used this in the 2021 JBS attack, encrypting meatpacking servers, per Sophos.
+Semi-Encryption
+To save time, attackers use semi-encryption, encrypting only parts of files. For example, LockBit 3.0 encrypts the first 5 bytes every 5,000 bytes in files larger than 1MB. This corrupts files enough to make them unusable but finishes in seconds, critical for large networks. Conti and BlackMatter adopted this, with a 2023 TXOne report noting LockBit 3.0’s multithreaded approach in a Taiwan semiconductor attack, encrypting design files rapidly. Semiencryption targets headers or key data blocks, ensuring recovery is impossible without the key.
+Headers Corruption
+Attackers mess with ZIP files or similar files to screw up backups. They encrypt the ZIP header (for example), the metadata that defines the archive’s structure, using AES-256. Without the header, the ZIP is unreadable, even if the file contents are intact. LockBit 2.0 used this in a 2021 attack on a U.S. manufacturer, corrupting backup archives, as reported by Palo Alto Networks. By targeting the central directory (a critical ZIP component), attackers ensure recovery tools fail, forcing victims to pay.
+Sparse File Encryption: For huge files (e.g., databases), attackers encrypt sparse regions, leaving gaps to speed up the process. DarkSide used this in the 2021 Colonial Pipeline attack, locking 100GB of data, per Bloomberg.
+Backup Deletion: Attackers wipe backups to block recovery, targeting Volume Shadow Copies with native Windows tools. LockBit 3.0 did this in a 2023 healthcare attack, according to CISA.
+GPO Deployment: On domain controllers, attackers use Group Policy Objects (GPOs) to push ransomware to all machines. Conti did this in 2021, encrypting entire networks, per Kroll.
+Real-World Examples
+Colonial Pipeline (DarkSide, 2021): DarkSide stole 100GB of operational data using a custom tool, then encrypted fuel management systems with AES-256. The attack halted U.S. pipelines, with stolen data leaked after non-payment, per Forbes.
+JBS Foods (REvil, 2021): REvil exfiltrated financial records via torrenting, then used semi-encryption to lock servers, demanding $11 million. Sophos noted their multithreaded encryption for speed.
+Accenture (LockBit 2.0, 2021): LockBit used StealBit to steal client data, then encrypted systems with partial encryption, leaking data when demands weren’t met, per Trend Micro.
+Taiwan Semiconductor (LockBit 3.0, 2023): LockBit exfiltrated design files with Rclone and StealBit, then encrypted servers with ChaCha20, corrupting ZIP backups, per TXOne.
+Ransomware operators execute their attacks with surgical precision, leveraging Active Directory, Kerberos, and domain controllers to infiltrate, escalate, and dominate networks. Their tools and techniques, from peer-to-peer exfiltration to semiencryption, showcase a relentless focus on speed, stealth, and maximum damage. Understanding their playbook reveals the devastating mechanics behind these cybercrimes.
