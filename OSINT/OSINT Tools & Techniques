@@ -1,0 +1,43 @@
+Emails/Usernames
+osint.rocks -> Set of python scripts that run on the web. Usernames/Phones/Emails/Domains
+	Sherlock for Usernames, GHunt for Gmail, HoleHe to see where Email is used
+whatsmyname.app -> Used for usernames or emails, has the largest amount of sites it searches. 
+
+Breach Searches
+Basic Email searches for included breaches
+haveibeenpwned.com
+breachdirectory.org <- includes usernames
+databreach.com
+dehashed.com <- 5$ a month, can search domains/emails, will show plain text passwords found
+
+IP Lookup:
+virustotal.com
+otx.alienvault.com
+ipinfo.io
+Others:
+intelx.io <- very large data scraper, shows exact file information was found in. can be strange to access at times
+Shodan.io 
+
+Google Dorking: 
+intext:"SEARCH"
+inurl:"SEARCH"
+site:WEBSITE intext:SEARCH
+intext:"SEARCH" & inurl:"SEARCH"
+More here: https://www.exploit-db.com/google-hacking-database
+
+OpenSource CTI:
+https://github.com/fastfire/deepdarkCTI
+https://github.com/DarkWebInformer/DarkWatchCTI : x.com/DarkWebInformer (Very active reporting)
+https://infosec.exchange/@monitorsg <- inforsec.exchange is mastodon fork used for Security only. worth looking into imo
+
+Ransomware Group Info:
+https://github.com/BushidoUK/Ransomware-Tool-Matrix
+https://www.ransomware.live/
+https://www.ransomlook.io/
+
+DarkWeb Most Common Forums: , <- USE A VPN/PROXY/TOR (Recommend Mullvad VPN w/ Tor on VM/VPS)
+breachforums.st (Currently down, DarkForum.net picking up as English site)
+exploit.in
+ramp4u.io
+http://verified3vr2kdbnza6c3e5ak4z5xmtti4hx36dfg3kbi6pwekztvsqd.onion/index.php <- Verified is the name
+xss.is
