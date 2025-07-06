@@ -1,0 +1,20 @@
+labs
+
+Advanced SQL Injection > https://portswigger.net/web-security/all-labs#sql-injection
+OWASP API Security Top 10 > https://portswigger.net/web-security/all-labs#api-testing
+XML External Entity Injection (XXE) > https://portswigger.net/web-security/all-labs#xml-external-entity-xxe-injection
+NoSQL Injection > https://portswigger.net/web-security/all-labs#nosql-injection
+Insecure Deserialization > https://portswigger.net/web-security/all-labs#insecure-deserialization
+Prototype Pollution > https://portswigger.net/web-security/all-labs#prototype-pollution
+File Inclusion & Path Traversal > https://portswigger.net/web-security/all-labs#path-traversal
+Server-side Template Injection (SSTI) > https://portswigger.net/web-security/all-labs#server-side-template-injection
+LDAP Injection > https://github.com/blabla1337/skf-labs/blob/master/md/Java/Ldap.md
+HTTP/2 Request Smuggling > https://portswigger.net/web-security/all-labs#http-request-smuggling
+WebSocket Request Smuggling > (The Same As Above)
+HTTP Browser Desync > (This Goes To You Either)
+Content Security Policy (CSP) > https://portswigger.net/web-security/cross-site-scripting/content-security-policy
+Cross Origin Resource Sharing (CORS) > https://portswigger.net/web-security/all-labs#cross-origin-resource-sharing-cors
+Same Origin Policy (SOP) (The Same As Above)
+Cross Site Request Forgery (CSRF) > https://portswigger.net/web-security/all-labs#cross-site-request-forgery-csrf
+Race Conditions > https://portswigger.net/web-security/all-labs#race-conditions
+DOM-Based Attacks > https://portswigger.net/web-security/all-labs#dom-based-vulnerabilities
