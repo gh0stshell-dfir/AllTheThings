@@ -7,7 +7,6 @@ net view /domain
 net view \\<hostname>
 net use
 net use \\<target>\C$ /user:<username> <password>
-ipconfig /all
 nltest /domain_trusts
 nltest /dclist:<domain>
 nltest /dsgetdc:<domain>
