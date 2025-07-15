@@ -1,0 +1,16 @@
+net user
+net localgroup
+net localgroup administrators
+net group "Domain Admins" /domain
+net view
+net view /domain
+net view \\<hostname>
+net use
+net use \\<target>\C$ /user:<username> <password>
+ipconfig /all
+whoami
+whoami /groups
+nltest /domain_trusts
+nltest /dclist:<domain>
+nltest /dsgetdc:<domain>
+nltest /server:<DCname> /query

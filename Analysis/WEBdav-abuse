@@ -1,0 +1,3 @@
+Email chain containing file://URL/file
+
+When coming in from a email, if a W10 machine is to open it, Windows will automatically authentication with the remote file share over port 445, and ntlm. Allow TA to have hash for offline cracking. 
