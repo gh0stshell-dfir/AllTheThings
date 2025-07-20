@@ -1,0 +1,17 @@
+let emailThreshold = 500;
+let timeWindow = 1h;
+let rmmFile = externaldata(X:string) [
+    @"https://raw.githubusercontent.com/jischell-msft/RemoteManagementMonitoringTools/main/Network%20Indicators/RMM_SummaryNetworkURI.csv"
+] with (format="csv", ignoreFirstRecord=true);
+let rmmDomainList = toscalar(rmmFile | summarize make_set(X));
+let emailBombingEvents = EmailEvents
+    | where Timestamp > ago(30d)
+    | summarize EmailCount = count() by RecipientEmailAddress, BombingTimeWindow = bin(Timestamp, timeWindow)
+    | where EmailCount > emailThreshold;
+DeviceNetworkEvents
+| where Timestamp > ago(30d)
+| where RemoteUrl has_any (rmmDomainList) or RemoteIP in (rmmDomainList)
+| join kind=inner (emailBombingEvents) on $left.InitiatingProcessAccountUpn == $right.RecipientEmailAddress
+| where Timestamp between (BombingTimeWindow .. (BombingTimeWindow + timeWindow))
+| project
+    BombingStart_Time = BombingTimeWindow, EmailBomb_User = RecipientEmailAddress, Email_Count_in_Hour = EmailCount,RMMConnection_Time = Timestamp, DeviceName, InitiatingProcessFileName, RemoteUrl, RemoteIP, InitiatingProcessCommandLine
